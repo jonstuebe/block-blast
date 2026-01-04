@@ -1,12 +1,5 @@
-import React, { memo } from "react";
-import { View, Text, StyleSheet, Pressable, Switch } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  FadeIn,
-  SlideInUp,
-} from "react-native-reanimated";
+import React, { memo, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Switch, Animated } from "react-native";
 import { COLORS } from "../utils/colors";
 import { Settings } from "../types";
 
@@ -23,20 +16,39 @@ function SettingsModalComponent({
   onSettingsChange,
   onClose,
 }: SettingsModalProps) {
-  // Close button animation
-  const closeScale = useSharedValue(1);
+  // Animation values
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const modalTranslateY = useRef(new Animated.Value(-300)).current;
+  const closeScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Animate in
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.spring(modalTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const handleClosePressIn = () => {
-    closeScale.value = withSpring(0.95, { damping: 15 });
+    Animated.spring(closeScale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleClosePressOut = () => {
-    closeScale.value = withSpring(1, { damping: 15 });
+    Animated.spring(closeScale, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
-
-  const closeAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: closeScale.value }],
-  }));
 
   const toggleSound = () => {
     onSettingsChange({ ...settings, soundEnabled: !settings.soundEnabled });
@@ -51,10 +63,9 @@ function SettingsModalComponent({
   };
 
   return (
-    <Animated.View style={styles.overlay} entering={FadeIn.duration(200)}>
+    <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
       <Animated.View
-        style={styles.modal}
-        entering={SlideInUp.springify().damping(15)}
+        style={[styles.modal, { transform: [{ translateY: modalTranslateY }] }]}
       >
         <Text style={styles.title}>SETTINGS</Text>
 
@@ -89,7 +100,7 @@ function SettingsModalComponent({
         </View>
 
         <AnimatedPressable
-          style={[styles.closeButton, closeAnimatedStyle]}
+          style={[styles.closeButton, { transform: [{ scale: closeScale }] }]}
           onPress={onClose}
           onPressIn={handleClosePressIn}
           onPressOut={handleClosePressOut}

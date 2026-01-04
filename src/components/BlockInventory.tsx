@@ -1,6 +1,5 @@
 import React, { memo, useCallback } from "react";
 import { View, StyleSheet, useWindowDimensions } from "react-native";
-import Animated, { FadeIn, ZoomIn, Layout } from "react-native-reanimated";
 import { Block } from "../types";
 import { DraggableBlock } from "./DraggableBlock";
 import { COLORS } from "../utils/colors";
@@ -39,26 +38,21 @@ function BlockInventoryComponent({
     <View style={styles.container}>
       <View style={styles.inventory}>
         {inventory.map((block, index) => (
-          <Animated.View
+          <View
             key={block?.id ?? `empty-${index}`}
             style={styles.blockSlot}
-            entering={FadeIn.delay(index * 100).springify()}
-            layout={Layout.springify()}
           >
             {block && (
-              <Animated.View
-                entering={ZoomIn.delay(index * 100).springify()}
-                style={styles.blockWrapper}
-              >
+              <View style={styles.blockWrapper}>
                 <DraggableBlock
                   block={block}
                   blockIndex={index}
                   inventoryCellSize={inventoryCellSize}
                   onPlaced={() => handleBlockPlaced(index)}
                 />
-              </Animated.View>
+              </View>
             )}
-          </Animated.View>
+          </View>
         ))}
       </View>
     </View>

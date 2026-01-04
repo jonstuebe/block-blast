@@ -1,15 +1,5 @@
-import React, { memo, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  withDelay,
-  withSequence,
-  FadeIn,
-  SlideInDown,
-} from "react-native-reanimated";
+import React, { memo, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Pressable, Animated } from "react-native";
 import { COLORS } from "../utils/colors";
 import { formatScore } from "../utils/scoring";
 
@@ -28,36 +18,60 @@ function GameOverModalComponent({
 }: GameOverModalProps) {
   const isNewHighScore = score >= highScore && score > 0;
 
-  // Button animation
-  const buttonScale = useSharedValue(1);
+  // Animation values
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const modalTranslateY = useRef(new Animated.Value(300)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  const newHighScoreOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Animate in
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(modalTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      if (isNewHighScore) {
+        Animated.timing(newHighScoreOpacity, {
+          toValue: 1,
+          duration: 300,
+          delay: 300,
+          useNativeDriver: true,
+        }).start();
+      }
+    });
+  }, []);
 
   const handlePressIn = () => {
-    buttonScale.value = withSpring(0.95, { damping: 15 });
+    Animated.spring(buttonScale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
-    buttonScale.value = withSpring(1, { damping: 15 });
+    Animated.spring(buttonScale, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
 
-  const buttonAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
-
   return (
-    <Animated.View
-      style={styles.overlay}
-      entering={FadeIn.duration(300)}
-    >
+    <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
       <Animated.View
-        style={styles.modal}
-        entering={SlideInDown.springify().damping(15)}
+        style={[styles.modal, { transform: [{ translateY: modalTranslateY }] }]}
       >
         <Text style={styles.gameOverText}>GAME OVER</Text>
 
         {isNewHighScore && (
           <Animated.View
-            entering={FadeIn.delay(300).springify()}
-            style={styles.newHighScoreContainer}
+            style={[styles.newHighScoreContainer, { opacity: newHighScoreOpacity }]}
           >
             <Text style={styles.newHighScoreText}>NEW HIGH SCORE!</Text>
           </Animated.View>
@@ -74,7 +88,7 @@ function GameOverModalComponent({
         </View>
 
         <AnimatedPressable
-          style={[styles.restartButton, buttonAnimatedStyle]}
+          style={[styles.restartButton, { transform: [{ scale: buttonScale }] }]}
           onPress={onRestart}
           onPressIn={handlePressIn}
           onPressOut={handlePressOut}

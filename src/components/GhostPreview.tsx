@@ -1,10 +1,5 @@
 import React, { memo } from "react";
 import { View, StyleSheet } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  Easing,
-} from "react-native-reanimated";
 import { Position, Block } from "../types";
 import { COLORS, BLOCK_COLORS } from "../utils/colors";
 import { getShapeCells } from "../utils/blocks";
@@ -24,19 +19,15 @@ function GhostPreviewComponent({
 }: GhostPreviewProps) {
   const shapeCells = getShapeCells(block.shape);
 
-  const animatedContainerStyle = useAnimatedStyle(() => ({
-    opacity: withTiming(0.6, { duration: 100, easing: Easing.ease }),
-  }));
-
   return (
-    <Animated.View
+    <View
       style={[
         styles.container,
         {
           left: position.col * cellSize,
           top: position.row * cellSize,
+          opacity: 0.6,
         },
-        animatedContainerStyle,
       ]}
     >
       {shapeCells.map((cell, index) => (
@@ -59,7 +50,7 @@ function GhostPreviewComponent({
           ]}
         />
       ))}
-    </Animated.View>
+    </View>
   );
 }
 

@@ -31,9 +31,11 @@ type GameAction =
 
 // Initial state factory
 function createInitialState(): GameState {
+  const grid = createEmptyGrid();
+  const inventory = generateInitialInventory();
   return {
-    grid: createEmptyGrid(),
-    inventory: generateInitialInventory(),
+    grid,
+    inventory,
     score: 0,
     highScore: 0,
     combo: 0,

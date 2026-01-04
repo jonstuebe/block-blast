@@ -1,10 +1,5 @@
-import React, { memo } from "react";
-import { StyleSheet, Pressable, Text } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-} from "react-native-reanimated";
+import React, { memo, useRef } from "react";
+import { StyleSheet, Pressable, Text, Animated } from "react-native";
 import { COLORS } from "../utils/colors";
 
 interface SettingsButtonProps {
@@ -14,23 +9,25 @@ interface SettingsButtonProps {
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 function SettingsButtonComponent({ onPress }: SettingsButtonProps) {
-  const scale = useSharedValue(1);
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.9, { damping: 15 });
+    Animated.spring(scaleAnim, {
+      toValue: 0.9,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15 });
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
 
   return (
     <AnimatedPressable
-      style={[styles.button, animatedStyle]}
+      style={[styles.button, { transform: [{ scale: scaleAnim }] }]}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}

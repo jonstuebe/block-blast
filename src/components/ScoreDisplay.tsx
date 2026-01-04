@@ -1,14 +1,5 @@
-import React, { memo, useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  useDerivedValue,
-  runOnJS,
-  Easing,
-} from "react-native-reanimated";
+import React, { memo, useEffect, useRef } from "react";
+import { View, Text, StyleSheet, Animated } from "react-native";
 import { COLORS } from "../utils/colors";
 import { formatScore } from "../utils/scoring";
 
@@ -18,45 +9,48 @@ interface ScoreDisplayProps {
 }
 
 function ScoreDisplayComponent({ score, highScore }: ScoreDisplayProps) {
-  // Animated score value for smooth counting
-  const animatedScore = useSharedValue(0);
-  const displayScore = useSharedValue("0");
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [displayScore, setDisplayScore] = React.useState(score);
 
-  // Scale animation when score changes
-  const scaleValue = useSharedValue(1);
-
-  // Update animated score when score changes
+  // Animate score changes
   useEffect(() => {
-    // Animate the score number
-    animatedScore.value = withTiming(score, {
-      duration: 500,
-      easing: Easing.out(Easing.ease),
-    });
-
     // Pop animation
-    scaleValue.value = withSpring(1.1, { damping: 5 }, () => {
-      scaleValue.value = withSpring(1, { damping: 12 });
-    });
-  }, [score, animatedScore, scaleValue]);
+    Animated.sequence([
+      Animated.spring(scaleAnim, {
+        toValue: 1.1,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  // Derive display score from animated value
-  useDerivedValue(() => {
-    const rounded = Math.floor(animatedScore.value);
-    runOnJS(setDisplayScore)(rounded);
-  }, [animatedScore]);
+    // Animate score counting
+    const startScore = displayScore;
+    const endScore = score;
+    const duration = 500;
+    const startTime = Date.now();
 
-  const [scoreText, setDisplayScore] = React.useState(0);
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const current = Math.floor(startScore + (endScore - startScore) * progress);
+      setDisplayScore(current);
 
-  const animatedScoreStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scaleValue.value }],
-  }));
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    animate();
+  }, [score]);
 
   return (
     <View style={styles.container}>
       <View style={styles.scoreContainer}>
         <Text style={styles.label}>SCORE</Text>
-        <Animated.View style={animatedScoreStyle}>
-          <Text style={styles.score}>{formatScore(scoreText)}</Text>
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <Text style={styles.score}>{formatScore(displayScore)}</Text>
         </Animated.View>
       </View>
       <View style={styles.highScoreContainer}>

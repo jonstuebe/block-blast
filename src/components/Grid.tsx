@@ -1,6 +1,5 @@
-import React, { useCallback, memo } from "react";
+import React, { useCallback, memo, useEffect } from "react";
 import { View, StyleSheet, useWindowDimensions, LayoutChangeEvent } from "react-native";
-import Animated, { useAnimatedStyle, useAnimatedReaction, runOnJS } from "react-native-reanimated";
 import { Grid as GridType, Position, GhostPreview } from "../types";
 import { GRID_SIZE } from "../utils/grid";
 import { COLORS } from "../utils/colors";
@@ -28,16 +27,19 @@ function GridComponent({ grid, clearingCells = [] }: GridProps) {
     cells: [],
   });
 
-  // React to ghost preview changes on UI thread
-  useAnimatedReaction(
-    () => ghostPreview.value,
-    (current, previous) => {
-      if (JSON.stringify(current) !== JSON.stringify(previous)) {
-        runOnJS(setGhostState)(current);
+  // Sync ghost preview from shared value to React state using polling
+  // This avoids worklet issues with useAnimatedReaction
+  useEffect(() => {
+    let lastValue = JSON.stringify(ghostPreview.value);
+    const interval = setInterval(() => {
+      const currentValue = JSON.stringify(ghostPreview.value);
+      if (currentValue !== lastValue) {
+        lastValue = currentValue;
+        setGhostState(ghostPreview.value);
       }
-    },
-    [ghostPreview]
-  );
+    }, 16); // ~60fps polling
+    return () => clearInterval(interval);
+  }, [ghostPreview]);
 
   // Update grid layout when measured
   const handleLayout = useCallback(

@@ -1,16 +1,5 @@
-import React, { memo, useEffect } from "react";
-import { StyleSheet } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withDelay,
-  withTiming,
-  withSequence,
-  Easing,
-  FadeIn,
-  FadeOut,
-} from "react-native-reanimated";
+import React, { memo, useEffect, useRef } from "react";
+import { StyleSheet, Animated, Text } from "react-native";
 import { COLORS } from "../utils/colors";
 import { getComboMultiplier, formatCombo } from "../utils/scoring";
 
@@ -19,31 +8,51 @@ interface ComboIndicatorProps {
 }
 
 function ComboIndicatorComponent({ combo }: ComboIndicatorProps) {
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (combo > 0) {
-      // Animate in with spring
-      scale.value = withSpring(1, { damping: 8, stiffness: 200 });
-      opacity.value = withTiming(1, { duration: 200 });
-
-      // Pulse animation
-      scale.value = withSequence(
-        withSpring(1.2, { damping: 5, stiffness: 300 }),
-        withSpring(1, { damping: 10, stiffness: 200 })
-      );
+      // Animate in
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        // Pulse animation
+        Animated.sequence([
+          Animated.spring(scaleAnim, {
+            toValue: 1.2,
+            useNativeDriver: true,
+          }),
+          Animated.spring(scaleAnim, {
+            toValue: 1,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
     } else {
       // Fade out
-      opacity.value = withTiming(0, { duration: 300 });
-      scale.value = withTiming(0.8, { duration: 300 });
+      Animated.parallel([
+        Animated.timing(opacityAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0.8,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
-  }, [combo, scale, opacity]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  }, [combo, scaleAnim, opacityAnim]);
 
   if (combo <= 0) return null;
 
@@ -52,16 +61,21 @@ function ComboIndicatorComponent({ combo }: ComboIndicatorProps) {
 
   return (
     <Animated.View
-      style={[styles.container, isHighCombo && styles.highCombo, animatedStyle]}
-      entering={FadeIn.springify()}
-      exiting={FadeOut.duration(200)}
+      style={[
+        styles.container,
+        isHighCombo && styles.highCombo,
+        {
+          transform: [{ scale: scaleAnim }],
+          opacity: opacityAnim,
+        },
+      ]}
     >
-      <Animated.Text style={[styles.comboText, isHighCombo && styles.highComboText]}>
+      <Text style={[styles.comboText, isHighCombo && styles.highComboText]}>
         COMBO
-      </Animated.Text>
-      <Animated.Text style={[styles.multiplier, isHighCombo && styles.highMultiplier]}>
+      </Text>
+      <Text style={[styles.multiplier, isHighCombo && styles.highMultiplier]}>
         {formatCombo(multiplier)}
-      </Animated.Text>
+      </Text>
     </Animated.View>
   );
 }

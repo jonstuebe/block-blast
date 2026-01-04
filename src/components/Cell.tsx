@@ -1,14 +1,5 @@
 import React, { memo } from "react";
-import { StyleSheet } from "react-native";
-import Animated, {
-  useAnimatedStyle,
-  withTiming,
-  withSequence,
-  withSpring,
-  Easing,
-  FadeOut,
-  ZoomOut,
-} from "react-native-reanimated";
+import { StyleSheet, View } from "react-native";
 import { GridCell, BlockColor } from "../types";
 import { BLOCK_COLORS, COLORS } from "../utils/colors";
 
@@ -27,28 +18,6 @@ function CellComponent({
   isGhostValid = true,
   isClearing = false,
 }: CellProps) {
-  const animatedStyle = useAnimatedStyle(() => {
-    if (isClearing) {
-      return {
-        transform: [{ scale: withTiming(0, { duration: 300, easing: Easing.out(Easing.ease) }) }],
-        opacity: withTiming(0, { duration: 300 }),
-      };
-    }
-
-    if (color && !isGhost) {
-      // Animate new blocks appearing
-      return {
-        transform: [{ scale: withSpring(1, { damping: 12, stiffness: 200 }) }],
-        opacity: 1,
-      };
-    }
-
-    return {
-      transform: [{ scale: 1 }],
-      opacity: 1,
-    };
-  }, [color, isClearing, isGhost]);
-
   const backgroundColor = isGhost
     ? isGhostValid
       ? COLORS.ghostValid
@@ -57,19 +26,20 @@ function CellComponent({
     ? BLOCK_COLORS[color]
     : COLORS.cellEmpty;
 
+  const isFilled = color && !isGhost;
+
   return (
-    <Animated.View
+    <View
       style={[
         styles.cell,
         {
           width: size,
           height: size,
           backgroundColor,
+          opacity: isClearing ? 0.5 : 1,
         },
-        color && !isGhost && styles.filledCell,
-        animatedStyle,
+        isFilled && styles.filledCell,
       ]}
-      exiting={isClearing ? FadeOut.duration(300).withInitialValues({ opacity: 1 }) : undefined}
     />
   );
 }

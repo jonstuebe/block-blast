@@ -1,19 +1,22 @@
-import React, { createContext, useContext, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useContext, ReactNode, useEffect, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useGameState, UseGameStateReturn } from "../hooks/useGameState";
 import { GridLayout, GhostPreview, Settings } from "../types";
-import { useSharedValue } from "react-native-reanimated";
-import type { SharedValue } from "react-native-reanimated";
 
 const SETTINGS_KEY = "@blockblast:settings";
+
+// Simple mutable ref type to replace SharedValue
+interface MutableRef<T> {
+  value: T;
+}
 
 interface GameContextType extends UseGameStateReturn {
   // Grid layout for coordinate calculations
   gridLayout: GridLayout;
   setGridLayout: (layout: GridLayout) => void;
 
-  // Ghost preview shared values (for real-time updates on UI thread)
-  ghostPreview: SharedValue<GhostPreview>;
+  // Ghost preview mutable ref (for real-time updates)
+  ghostPreview: MutableRef<GhostPreview>;
 
   // Settings
   settings: Settings;
@@ -69,12 +72,22 @@ export function GameProvider({ children }: GameProviderProps) {
     }
   }, []);
 
-  // Shared value for ghost preview (updates on UI thread)
-  const ghostPreview = useSharedValue<GhostPreview>({
+  // Mutable ref for ghost preview (replaces Reanimated shared value)
+  const ghostPreviewRef = useRef<GhostPreview>({
     position: null,
     isValid: false,
     cells: [],
   });
+
+  // Create a stable object that mimics SharedValue interface
+  const ghostPreview = React.useMemo(() => ({
+    get value() {
+      return ghostPreviewRef.current;
+    },
+    set value(newValue: GhostPreview) {
+      ghostPreviewRef.current = newValue;
+    },
+  }), []);
 
   const value: GameContextType = {
     ...gameState,

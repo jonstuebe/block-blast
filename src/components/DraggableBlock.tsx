@@ -1,16 +1,5 @@
-import React, { memo, useCallback } from "react";
-import { StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  runOnJS,
-  Easing,
-  withSequence,
-  withRepeat,
-} from "react-native-reanimated";
+import React, { memo, useCallback, useState, useRef } from "react";
+import { StyleSheet, View, Animated, PanResponder } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Block, Position } from "../types";
 import { BLOCK_COLORS, COLORS } from "../utils/colors";
@@ -36,25 +25,16 @@ function DraggableBlockComponent({
 }: DraggableBlockProps) {
   const { grid, gridLayout, ghostPreview, placeBlock, settings } = useGame();
 
-  // Animation shared values
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
-  const opacity = useSharedValue(1);
-  const zIndex = useSharedValue(1);
-  const shadowOpacity = useSharedValue(0.2);
+  // Animation values using React Native's Animated API (not Reanimated)
+  const pan = useRef(new Animated.ValueXY()).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
 
-  // Starting position for reset
-  const startX = useSharedValue(0);
-  const startY = useSharedValue(0);
-
-  // Current drag position (absolute on screen)
-  const absoluteX = useSharedValue(0);
-  const absoluteY = useSharedValue(0);
+  // Track absolute position for grid calculations
+  const absolutePosRef = useRef({ x: 0, y: 0 });
 
   // Block dimensions
   const { rows, cols } = getShapeDimensions(block.shape);
-  const shapeCells = getShapeCells(block.shape);
   const blockWidth = cols * inventoryCellSize;
   const blockHeight = rows * inventoryCellSize;
 
@@ -63,11 +43,9 @@ function DraggableBlockComponent({
     (touchX: number, touchY: number): Position | null => {
       if (gridLayout.cellSize === 0) return null;
 
-      // Calculate which cell the top-left of the block would be in
       const col = Math.round((touchX - gridLayout.x) / gridLayout.cellSize);
       const row = Math.round((touchY - gridLayout.y) / gridLayout.cellSize);
 
-      // Check bounds
       if (
         row < 0 ||
         col < 0 ||
@@ -83,7 +61,7 @@ function DraggableBlockComponent({
   );
 
   // Update ghost preview
-  const updateGhostPreview = useCallback(
+  const updateGhostPreviewFn = useCallback(
     (touchX: number, touchY: number) => {
       const position = calculateGridPosition(touchX, touchY);
 
@@ -128,147 +106,128 @@ function DraggableBlockComponent({
     [settings.hapticsEnabled]
   );
 
-  // Handle successful placement
-  const handlePlacement = useCallback(
-    (position: Position) => {
-      const success = placeBlock(blockIndex, position);
-      if (success) {
-        triggerHaptic("success");
-        onPlaced?.();
-      }
-    },
-    [placeBlock, blockIndex, triggerHaptic, onPlaced]
-  );
+  // PanResponder for drag handling (no Reanimated worklets)
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
 
-  // Shake animation for invalid placement
-  const shakeAnimation = useCallback(() => {
-    translateX.value = withSequence(
-      withTiming(-10, { duration: 50 }),
-      withRepeat(withTiming(10, { duration: 100 }), 3, true),
-      withSpring(0, { damping: 12 })
-    );
-  }, [translateX]);
+      onPanResponderGrant: (evt, gestureState) => {
+        // Scale up on drag start
+        Animated.spring(scaleAnim, {
+          toValue: DRAG_SCALE,
+          useNativeDriver: true,
+        }).start();
 
-  // Pan gesture handler
-  const panGesture = Gesture.Pan()
-    .onStart((event) => {
-      "worklet";
-      // Store starting position
-      startX.value = translateX.value;
-      startY.value = translateY.value;
+        triggerHaptic("light");
 
-      // Calculate absolute position
-      absoluteX.value = event.absoluteX - blockWidth / 2;
-      absoluteY.value = event.absoluteY - blockHeight / 2 - FINGER_OFFSET;
+        // Calculate initial absolute position
+        absolutePosRef.current = {
+          x: evt.nativeEvent.pageX - blockWidth / 2,
+          y: evt.nativeEvent.pageY - blockHeight / 2 - FINGER_OFFSET,
+        };
+      },
 
-      // Scale up and add shadow
-      scale.value = withSpring(DRAG_SCALE, { damping: 12, stiffness: 200 });
-      shadowOpacity.value = withTiming(0.5, { duration: 150 });
-      zIndex.value = 100;
-
-      // Trigger haptic
-      runOnJS(triggerHaptic)("light");
-    })
-    .onUpdate((event) => {
-      "worklet";
-      // Update position (relative to start)
-      translateX.value = startX.value + event.translationX;
-      translateY.value = startY.value + event.translationY - FINGER_OFFSET;
-
-      // Update absolute position for grid calculation
-      absoluteX.value = event.absoluteX - blockWidth / 2;
-      absoluteY.value = event.absoluteY - blockHeight / 2 - FINGER_OFFSET;
-
-      // Update ghost preview (on JS thread)
-      runOnJS(updateGhostPreview)(absoluteX.value, absoluteY.value);
-    })
-    .onEnd(() => {
-      "worklet";
-      // Get current ghost preview state
-      const preview = ghostPreview.value;
-
-      if (preview.position && preview.isValid) {
-        // Valid placement - animate to grid position
-        const targetX =
-          gridLayout.x +
-          preview.position.col * gridLayout.cellSize -
-          (absoluteX.value - translateX.value);
-        const targetY =
-          gridLayout.y +
-          preview.position.row * gridLayout.cellSize -
-          (absoluteY.value - translateY.value);
-
-        translateX.value = withTiming(targetX, {
-          duration: 150,
-          easing: Easing.out(Easing.ease),
+      onPanResponderMove: (evt, gestureState) => {
+        // Update position
+        pan.setValue({
+          x: gestureState.dx,
+          y: gestureState.dy - FINGER_OFFSET,
         });
-        translateY.value = withTiming(targetY, {
-          duration: 150,
-          easing: Easing.out(Easing.ease),
-        });
-        scale.value = withTiming(0, { duration: 150 });
-        opacity.value = withTiming(0, { duration: 150 });
 
-        // Handle placement on JS thread
-        runOnJS(handlePlacement)(preview.position);
-      } else {
-        // Invalid placement - rubber band back
-        translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-        translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+        // Update absolute position for grid calculation
+        absolutePosRef.current = {
+          x: evt.nativeEvent.pageX - blockWidth / 2,
+          y: evt.nativeEvent.pageY - blockHeight / 2 - FINGER_OFFSET,
+        };
 
-        // Shake if was over grid
-        if (preview.position) {
-          runOnJS(shakeAnimation)();
-          runOnJS(triggerHaptic)("error");
+        // Update ghost preview
+        updateGhostPreviewFn(absolutePosRef.current.x, absolutePosRef.current.y);
+      },
+
+      onPanResponderRelease: (evt, gestureState) => {
+        const preview = ghostPreview.value;
+
+        if (preview.position && preview.isValid) {
+          // Valid placement
+          const success = placeBlock(blockIndex, preview.position);
+          if (success) {
+            triggerHaptic("success");
+            // Fade out
+            Animated.timing(opacityAnim, {
+              toValue: 0,
+              duration: 150,
+              useNativeDriver: true,
+            }).start();
+            onPlaced?.();
+          }
+        } else {
+          // Invalid placement - spring back
+          Animated.spring(pan, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: true,
+          }).start();
+
+          if (preview.position) {
+            triggerHaptic("error");
+            // Shake animation
+            Animated.sequence([
+              Animated.timing(pan, { toValue: { x: -10, y: pan.y._value }, duration: 50, useNativeDriver: true }),
+              Animated.timing(pan, { toValue: { x: 10, y: pan.y._value }, duration: 100, useNativeDriver: true }),
+              Animated.timing(pan, { toValue: { x: -10, y: pan.y._value }, duration: 100, useNativeDriver: true }),
+              Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }),
+            ]).start();
+          }
         }
-      }
 
-      // Reset scale and shadow
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
-      shadowOpacity.value = withTiming(0.2, { duration: 150 });
-      zIndex.value = 1;
+        // Reset scale
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+        }).start();
 
-      // Clear ghost preview
-      runOnJS(clearGhostPreview)();
-    });
-
-  // Animated styles
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ],
-    opacity: opacity.value,
-    zIndex: zIndex.value,
-    shadowOpacity: shadowOpacity.value,
-  }));
+        // Clear ghost preview
+        clearGhostPreview();
+      },
+    })
+  ).current;
 
   return (
-    <GestureDetector gesture={panGesture}>
-      <Animated.View style={[styles.container, animatedStyle]}>
-        {block.shape.map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {row.map((cell, colIndex) => (
-              <View
-                key={`${rowIndex}-${colIndex}`}
-                style={[
-                  styles.cell,
-                  {
-                    width: inventoryCellSize,
-                    height: inventoryCellSize,
-                    backgroundColor: cell
-                      ? BLOCK_COLORS[block.color]
-                      : "transparent",
-                    borderWidth: cell ? 2 : 0,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        ))}
-      </Animated.View>
-    </GestureDetector>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          transform: [
+            { translateX: pan.x },
+            { translateY: pan.y },
+            { scale: scaleAnim },
+          ],
+          opacity: opacityAnim,
+        },
+      ]}
+      {...panResponder.panHandlers}
+    >
+      {block.shape.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.row}>
+          {row.map((cell, colIndex) => (
+            <View
+              key={`${rowIndex}-${colIndex}`}
+              style={[
+                styles.cell,
+                {
+                  width: inventoryCellSize,
+                  height: inventoryCellSize,
+                  backgroundColor: cell
+                    ? BLOCK_COLORS[block.color]
+                    : "transparent",
+                  borderWidth: cell ? 2 : 0,
+                },
+              ]}
+            />
+          ))}
+        </View>
+      ))}
+    </Animated.View>
   );
 }
 

@@ -199,9 +199,9 @@ function DraggableBlockComponent({
         // Handle placement on JS thread
         runOnJS(handlePlacement)(preview.position);
       } else {
-        // Invalid placement - rubber band back
-        translateX.value = withSpring(0, { damping: 15, stiffness: 150 });
-        translateY.value = withSpring(0, { damping: 15, stiffness: 150 });
+        // Invalid placement - smooth return to origin
+        translateX.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+        translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
 
         // Shake if was over grid
         if (preview.position) {

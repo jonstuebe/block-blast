@@ -28,6 +28,9 @@ function CellComponent({
 
   const isFilled = color && !isGhost;
 
+  // When clearing, instantly hide the cell - particles handle the visual effect
+  const cellOpacity = isClearing ? 0 : 1;
+
   return (
     <View
       style={[
@@ -36,7 +39,7 @@ function CellComponent({
           width: size,
           height: size,
           backgroundColor,
-          opacity: isClearing ? 0.5 : 1,
+          opacity: cellOpacity,
         },
         isFilled && styles.filledCell,
       ]}

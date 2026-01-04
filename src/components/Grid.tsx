@@ -4,14 +4,16 @@ import { Grid as GridType, Position, GhostPreview } from "../types";
 import { GRID_SIZE } from "../utils/grid";
 import { COLORS } from "../utils/colors";
 import { Cell } from "./Cell";
+import { ClearingEffect, ClearingCell } from "./ClearingEffect";
 import { useGame } from "../context/GameContext";
 
 interface GridProps {
   grid: GridType;
-  clearingCells?: Position[];
+  clearingCells?: ClearingCell[];
+  onClearingComplete?: () => void;
 }
 
-function GridComponent({ grid, clearingCells = [] }: GridProps) {
+function GridComponent({ grid, clearingCells = [], onClearingComplete }: GridProps) {
   const { width: screenWidth } = useWindowDimensions();
   const { setGridLayout, ghostPreview } = useGame();
 
@@ -62,10 +64,15 @@ function GridComponent({ grid, clearingCells = [] }: GridProps) {
   // Check if a cell is being cleared
   const isCellClearing = useCallback(
     (row: number, col: number): boolean => {
-      return clearingCells.some((cell) => cell.row === row && cell.col === col);
+      return clearingCells.some((cell) => cell.position.row === row && cell.position.col === col);
     },
     [clearingCells]
   );
+
+  // Handle clearing animation complete
+  const handleClearingComplete = useCallback(() => {
+    onClearingComplete?.();
+  }, [onClearingComplete]);
 
   // Check if a cell has ghost preview
   const getGhostState = useCallback(
@@ -102,6 +109,15 @@ function GridComponent({ grid, clearingCells = [] }: GridProps) {
           })}
         </View>
       ))}
+      
+      {/* Particle effect overlay for clearing animation */}
+      {clearingCells.length > 0 && (
+        <ClearingEffect
+          cells={clearingCells}
+          cellSize={cellSize}
+          onComplete={handleClearingComplete}
+        />
+      )}
     </View>
   );
 }

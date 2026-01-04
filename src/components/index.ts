@@ -6,4 +6,6 @@ export { GhostPreview } from "./GhostPreview";
 export { ScoreDisplay } from "./ScoreDisplay";
 export { ComboIndicator } from "./ComboIndicator";
 export { SettingsButton } from "./SettingsButton";
+export { ClearingEffect } from "./ClearingEffect";
+export type { ClearingCell } from "./ClearingEffect";
 

@@ -11,9 +11,10 @@ import { GameOverModal } from "./GameOverModal";
 import { SettingsModal } from "./SettingsModal";
 import { useGame } from "../context/GameContext";
 import { COLORS } from "../utils/colors";
-import { getCellsToClear, checkLineClears } from "../utils/grid";
+import { getCellsToClear } from "../utils/grid";
 import { formatScore } from "../utils/scoring";
-import { Position } from "../types";
+import { BlockColor } from "../types";
+import type { ClearingCell } from "../components/ClearingEffect";
 
 export function GameScreen() {
   const {
@@ -22,6 +23,7 @@ export function GameScreen() {
     score,
     highScore,
     combo,
+    linesToClear,
     isGameOver,
     isClearing,
     resetGame,
@@ -30,31 +32,42 @@ export function GameScreen() {
     setSettings,
   } = useGame();
 
-  const [clearingCells, setClearingCells] = useState<Position[]>([]);
+  const [clearingCells, setClearingCells] = useState<ClearingCell[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Handle clearing state - animate cells then notify machine
+  // Handle clearing state - capture colors and start animation
   useEffect(() => {
-    if (isClearing) {
-      // Get cells to clear from current grid state
-      const lineClear = checkLineClears(grid);
-      if (lineClear.totalLines > 0) {
-        const cells = getCellsToClear(lineClear);
-        setClearingCells(cells);
-
-        // After animation, notify machine that clearing is complete
-        const timer = setTimeout(() => {
-          setClearingCells([]);
-          clearComplete();
-        }, 350);
-
-        return () => clearTimeout(timer);
-      } else {
-        // No lines to clear, just complete
-        clearComplete();
-      }
+    if (isClearing && linesToClear) {
+      // Use linesToClear from context (set by state machine before clearing)
+      const positions = getCellsToClear(linesToClear);
+      
+      // Convert positions to ClearingCells with colors from grid
+      const cellsWithColors: ClearingCell[] = positions
+        .map((pos) => {
+          const color = grid[pos.row][pos.col];
+          if (color) {
+            return {
+              position: pos,
+              color: color as BlockColor,
+            };
+          }
+          return null;
+        })
+        .filter((cell): cell is ClearingCell => cell !== null);
+      
+      setClearingCells(cellsWithColors);
+      // Animation completion is now handled by ClearingEffect callback
+    } else if (isClearing && !linesToClear) {
+      // No lines to clear, just complete
+      clearComplete();
     }
-  }, [isClearing, grid, clearComplete]);
+  }, [isClearing, linesToClear, grid, clearComplete]);
+
+  // Handle clearing animation complete
+  const handleClearingComplete = useCallback(() => {
+    setClearingCells([]);
+    clearComplete();
+  }, [clearComplete]);
 
   const handleBlockPlaced = useCallback(() => {
     // Block placement is now handled by the state machine
@@ -95,7 +108,11 @@ export function GameScreen() {
 
             {/* Game Grid */}
             <View style={styles.gridContainer}>
-              <Grid grid={grid} clearingCells={clearingCells} />
+              <Grid 
+                grid={grid} 
+                clearingCells={clearingCells} 
+                onClearingComplete={handleClearingComplete}
+              />
             </View>
 
             {/* Block Inventory */}

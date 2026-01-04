@@ -247,10 +247,12 @@ export const gameMachine = setup({
     },
 
     clearing: {
-      entry: "clearLinesFromGrid",
+      // Note: clearLinesFromGrid runs on CLEAR_COMPLETE, not entry
+      // This allows the UI to animate the clearing before the grid is actually cleared
       on: {
         CLEAR_COMPLETE: {
           target: "checkingGameOver",
+          actions: "clearLinesFromGrid",
         },
       },
     },

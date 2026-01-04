@@ -2,7 +2,7 @@ import React, { createContext, useContext, ReactNode, useEffect, useCallback } f
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMachine } from "@xstate/react";
 import { gameMachine } from "../machines/gameMachine";
-import { GridLayout, GhostPreview, Settings, Grid, Block, Position } from "../types";
+import { GridLayout, GhostPreview, Settings, Grid, Block, Position, LineClearResult } from "../types";
 import { useSharedValue } from "react-native-reanimated";
 import type { SharedValue } from "react-native-reanimated";
 import { canPlaceBlock } from "../utils/grid";
@@ -17,6 +17,7 @@ interface GameContextType {
   score: number;
   highScore: number;
   combo: number;
+  linesToClear: LineClearResult | null;
   isGameOver: boolean;
   isDragging: boolean;
   isClearing: boolean;
@@ -164,6 +165,7 @@ export function GameProvider({ children }: GameProviderProps) {
     score: state.context.score,
     highScore: state.context.highScore,
     combo: state.context.combo,
+    linesToClear: state.context.linesToClear,
     isGameOver: state.matches("gameOver"),
     isDragging: state.matches("dragging"),
     isClearing: state.matches("clearing"),

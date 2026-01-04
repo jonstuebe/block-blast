@@ -82,32 +82,30 @@ function ComboIndicatorComponent({ combo }: ComboIndicatorProps) {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    top: 120,
-    right: 20,
     backgroundColor: "rgba(78, 205, 196, 0.2)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
     borderWidth: 2,
     borderColor: COLORS.buttonPrimary,
     alignItems: "center",
+    minWidth: 70,
   },
   highCombo: {
     backgroundColor: "rgba(255, 217, 61, 0.2)",
     borderColor: COLORS.textAccent,
   },
   comboText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "bold",
     color: COLORS.buttonPrimary,
-    letterSpacing: 2,
+    letterSpacing: 1,
   },
   highComboText: {
     color: COLORS.textAccent,
   },
   multiplier: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: "bold",
     color: COLORS.buttonPrimary,
   },

@@ -5,10 +5,9 @@ import { formatScore } from "../utils/scoring";
 
 interface ScoreDisplayProps {
   score: number;
-  highScore: number;
 }
 
-function ScoreDisplayComponent({ score, highScore }: ScoreDisplayProps) {
+function ScoreDisplayComponent({ score }: ScoreDisplayProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [displayScore, setDisplayScore] = React.useState(score);
 
@@ -47,30 +46,17 @@ function ScoreDisplayComponent({ score, highScore }: ScoreDisplayProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.scoreContainer}>
-        <Text style={styles.label}>SCORE</Text>
-        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <Text style={styles.score}>{formatScore(displayScore)}</Text>
-        </Animated.View>
-      </View>
-      <View style={styles.highScoreContainer}>
-        <Text style={styles.highScoreLabel}>BEST</Text>
-        <Text style={styles.highScore}>{formatScore(highScore)}</Text>
-      </View>
+      <Text style={styles.label}>SCORE</Text>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+        <Text style={styles.score}>{formatScore(displayScore)}</Text>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  scoreContainer: {
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   label: {
     fontSize: 14,
@@ -86,21 +72,6 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(0, 0, 0, 0.3)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
-  },
-  highScoreContainer: {
-    alignItems: "center",
-  },
-  highScoreLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: COLORS.textSecondary,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  highScore: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: COLORS.textAccent,
   },
 });
 

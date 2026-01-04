@@ -39,9 +39,6 @@ function SettingsButtonComponent({ onPress }: SettingsButtonProps) {
 
 const styles = StyleSheet.create({
   button: {
-    position: "absolute",
-    top: 16,
-    right: 16,
     width: 44,
     height: 44,
     borderRadius: 22,

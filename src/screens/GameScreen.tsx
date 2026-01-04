@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from "react";
-import { View, StyleSheet, SafeAreaView, StatusBar } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { Grid } from "../components/Grid";
@@ -12,6 +12,7 @@ import { SettingsModal } from "./SettingsModal";
 import { useGame } from "../context/GameContext";
 import { COLORS } from "../utils/colors";
 import { getCellsToClear, checkLineClears } from "../utils/grid";
+import { formatScore } from "../utils/scoring";
 import { Position } from "../types";
 
 export function GameScreen() {
@@ -81,14 +82,16 @@ export function GameScreen() {
         <SafeAreaView style={styles.safeArea}>
           <StatusBar barStyle="light-content" />
           <View style={styles.container}>
-            {/* Score Display */}
+            {/* Header with Score, Combo, and Settings */}
             <View style={styles.header}>
-              <ScoreDisplay score={score} highScore={highScore} />
-              <SettingsButton onPress={handleOpenSettings} />
+              <ScoreDisplay score={score} />
+              <ComboIndicator combo={combo} />
+              <View style={styles.headerRight}>
+                <SettingsButton onPress={handleOpenSettings} />
+                <Text style={styles.highScoreLabel}>BEST</Text>
+                <Text style={styles.highScore}>{formatScore(highScore)}</Text>
+              </View>
             </View>
-
-            {/* Combo Indicator */}
-            <ComboIndicator combo={combo} />
 
             {/* Game Grid */}
             <View style={styles.gridContainer}>
@@ -142,7 +145,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     paddingTop: 10,
+    paddingHorizontal: 20,
+    zIndex: 10,
+  },
+  headerRight: {
+    alignItems: "center",
+    gap: 4,
+  },
+  highScoreLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+  },
+  highScore: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: COLORS.textAccent,
   },
   gridContainer: {
     flex: 1,

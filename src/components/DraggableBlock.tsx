@@ -25,7 +25,7 @@ interface DraggableBlockProps {
   onPlaced?: () => void;
 }
 
-const DRAG_SCALE = 1.1;
+const DRAG_SCALE = 1.0;
 const FINGER_OFFSET = 80; // Pixels above finger when dragging
 
 function DraggableBlockComponent({

@@ -1,35 +1,37 @@
 import React, { memo, useCallback } from "react";
-import { View, StyleSheet, useWindowDimensions } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Animated, { FadeIn, ZoomIn, Layout } from "react-native-reanimated";
 import { Block } from "../types";
 import { DraggableBlock } from "./DraggableBlock";
 import { COLORS } from "../utils/colors";
+import { useGame } from "../context/GameContext";
 
 interface BlockInventoryProps {
   inventory: (Block | null)[];
   onBlockPlaced?: () => void;
 }
 
-// Calculate cell size for inventory blocks (smaller than grid cells)
-const INVENTORY_CELL_SIZE_RATIO = 0.8;
-const MAX_BLOCK_DIMENSION = 5; // Max block dimension for sizing
-
 function BlockInventoryComponent({
   inventory,
   onBlockPlaced,
 }: BlockInventoryProps) {
-  const { width: screenWidth } = useWindowDimensions();
+  const { gridLayout } = useGame();
 
-  // Calculate inventory cell size based on screen width
-  // We want 3 blocks to fit comfortably with some spacing
-  const availableWidth = screenWidth * 0.9;
-  const inventoryCellSize = Math.floor(
-    (availableWidth / 3 / MAX_BLOCK_DIMENSION) * INVENTORY_CELL_SIZE_RATIO
-  );
+  // Use the same cell size as the grid so blocks match exactly where they'll drop
+  const inventoryCellSize = gridLayout.cellSize;
 
   const handleBlockPlaced = useCallback(() => {
     onBlockPlaced?.();
   }, [onBlockPlaced]);
+
+  // Don't render blocks until grid has measured and we have a valid cell size
+  if (inventoryCellSize === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.inventory, styles.inventoryLoading]} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -80,9 +82,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  inventoryLoading: {
+    minHeight: 120,
+  },
   blockSlot: {
     flex: 1,
-    minHeight: 80,
     justifyContent: "center",
     alignItems: "center",
   },

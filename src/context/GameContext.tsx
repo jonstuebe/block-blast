@@ -1,22 +1,41 @@
-import React, { createContext, useContext, ReactNode, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, ReactNode, useEffect, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useGameState, UseGameStateReturn } from "../hooks/useGameState";
-import { GridLayout, GhostPreview, Settings } from "../types";
+import { useMachine } from "@xstate/react";
+import { gameMachine } from "../machines/gameMachine";
+import { GridLayout, GhostPreview, Settings, Grid, Block, Position } from "../types";
+import { useSharedValue } from "react-native-reanimated";
+import type { SharedValue } from "react-native-reanimated";
+import { canPlaceBlock } from "../utils/grid";
 
+const HIGH_SCORE_KEY = "@blockblast:highscore";
 const SETTINGS_KEY = "@blockblast:settings";
 
-// Simple mutable ref type to replace SharedValue
-interface MutableRef<T> {
-  value: T;
-}
+interface GameContextType {
+  // State from machine
+  grid: Grid;
+  inventory: (Block | null)[];
+  score: number;
+  highScore: number;
+  combo: number;
+  isGameOver: boolean;
+  isDragging: boolean;
+  isClearing: boolean;
 
-interface GameContextType extends UseGameStateReturn {
+  // Actions
+  startDrag: (blockIndex: number) => void;
+  updateDrag: (position: Position | null, isValid: boolean) => void;
+  cancelDrag: () => void;
+  dropBlock: (position: Position) => void;
+  clearComplete: () => void;
+  resetGame: () => void;
+  canPlaceBlockAt: (block: Block, position: Position) => boolean;
+
   // Grid layout for coordinate calculations
   gridLayout: GridLayout;
   setGridLayout: (layout: GridLayout) => void;
 
-  // Ghost preview mutable ref (for real-time updates)
-  ghostPreview: MutableRef<GhostPreview>;
+  // Ghost preview shared values (for real-time updates on UI thread)
+  ghostPreview: SharedValue<GhostPreview>;
 
   // Settings
   settings: Settings;
@@ -36,7 +55,8 @@ const defaultSettings: Settings = {
 };
 
 export function GameProvider({ children }: GameProviderProps) {
-  const gameState = useGameState();
+  const [state, send] = useMachine(gameMachine, { input: {} });
+  
   const [gridLayout, setGridLayout] = React.useState<GridLayout>({
     x: 0,
     y: 0,
@@ -46,6 +66,42 @@ export function GameProvider({ children }: GameProviderProps) {
   });
 
   const [settings, setSettingsState] = React.useState<Settings>(defaultSettings);
+
+  // Shared value for ghost preview (updates on UI thread)
+  const ghostPreview = useSharedValue<GhostPreview>({
+    position: null,
+    isValid: false,
+    cells: [],
+  });
+
+  // Load high score from storage on mount
+  useEffect(() => {
+    async function loadHighScore() {
+      try {
+        const stored = await AsyncStorage.getItem(HIGH_SCORE_KEY);
+        if (stored) {
+          send({ type: "LOAD_HIGH_SCORE", highScore: parseInt(stored, 10) });
+        }
+      } catch (error) {
+        console.error("Failed to load high score:", error);
+      }
+    }
+    loadHighScore();
+  }, [send]);
+
+  // Save high score when it changes
+  useEffect(() => {
+    async function saveHighScore() {
+      try {
+        await AsyncStorage.setItem(HIGH_SCORE_KEY, state.context.highScore.toString());
+      } catch (error) {
+        console.error("Failed to save high score:", error);
+      }
+    }
+    if (state.context.highScore > 0) {
+      saveHighScore();
+    }
+  }, [state.context.highScore]);
 
   // Load settings from storage on mount
   useEffect(() => {
@@ -72,28 +128,63 @@ export function GameProvider({ children }: GameProviderProps) {
     }
   }, []);
 
-  // Mutable ref for ghost preview (replaces Reanimated shared value)
-  const ghostPreviewRef = useRef<GhostPreview>({
-    position: null,
-    isValid: false,
-    cells: [],
-  });
+  // Actions
+  const startDrag = useCallback((blockIndex: number) => {
+    send({ type: "DRAG_START", blockIndex });
+  }, [send]);
 
-  // Create a stable object that mimics SharedValue interface
-  const ghostPreview = React.useMemo(() => ({
-    get value() {
-      return ghostPreviewRef.current;
-    },
-    set value(newValue: GhostPreview) {
-      ghostPreviewRef.current = newValue;
-    },
-  }), []);
+  const updateDrag = useCallback((position: Position | null, isValid: boolean) => {
+    send({ type: "DRAG_UPDATE", position, isValid });
+  }, [send]);
+
+  const cancelDrag = useCallback(() => {
+    send({ type: "DRAG_CANCEL" });
+  }, [send]);
+
+  const dropBlock = useCallback((position: Position) => {
+    send({ type: "DROP_BLOCK", position });
+  }, [send]);
+
+  const clearComplete = useCallback(() => {
+    send({ type: "CLEAR_COMPLETE" });
+  }, [send]);
+
+  const resetGame = useCallback(() => {
+    send({ type: "RESTART" });
+  }, [send]);
+
+  const canPlaceBlockAt = useCallback((block: Block, position: Position): boolean => {
+    return canPlaceBlock(state.context.grid, block, position);
+  }, [state.context.grid]);
 
   const value: GameContextType = {
-    ...gameState,
+    // State from machine context
+    grid: state.context.grid,
+    inventory: state.context.inventory,
+    score: state.context.score,
+    highScore: state.context.highScore,
+    combo: state.context.combo,
+    isGameOver: state.matches("gameOver"),
+    isDragging: state.matches("dragging"),
+    isClearing: state.matches("clearing"),
+
+    // Actions
+    startDrag,
+    updateDrag,
+    cancelDrag,
+    dropBlock,
+    clearComplete,
+    resetGame,
+    canPlaceBlockAt,
+
+    // Layout
     gridLayout,
     setGridLayout,
+
+    // Ghost preview
     ghostPreview,
+
+    // Settings
     settings,
     setSettings,
   };

@@ -1,13 +1,13 @@
 import React, { memo, useCallback } from "react";
 import { View, StyleSheet, useWindowDimensions } from "react-native";
+import Animated, { FadeIn, ZoomIn, Layout } from "react-native-reanimated";
 import { Block } from "../types";
 import { DraggableBlock } from "./DraggableBlock";
 import { COLORS } from "../utils/colors";
-import { getShapeDimensions } from "../utils/blocks";
 
 interface BlockInventoryProps {
   inventory: (Block | null)[];
-  onBlockPlaced?: (blockIndex: number) => void;
+  onBlockPlaced?: () => void;
 }
 
 // Calculate cell size for inventory blocks (smaller than grid cells)
@@ -27,32 +27,34 @@ function BlockInventoryComponent({
     (availableWidth / 3 / MAX_BLOCK_DIMENSION) * INVENTORY_CELL_SIZE_RATIO
   );
 
-  const handleBlockPlaced = useCallback(
-    (blockIndex: number) => {
-      onBlockPlaced?.(blockIndex);
-    },
-    [onBlockPlaced]
-  );
+  const handleBlockPlaced = useCallback(() => {
+    onBlockPlaced?.();
+  }, [onBlockPlaced]);
 
   return (
     <View style={styles.container}>
       <View style={styles.inventory}>
         {inventory.map((block, index) => (
-          <View
+          <Animated.View
             key={block?.id ?? `empty-${index}`}
             style={styles.blockSlot}
+            entering={FadeIn.delay(index * 100).springify()}
+            layout={Layout.springify()}
           >
             {block && (
-              <View style={styles.blockWrapper}>
+              <Animated.View
+                entering={ZoomIn.delay(index * 100).springify()}
+                style={styles.blockWrapper}
+              >
                 <DraggableBlock
                   block={block}
                   blockIndex={index}
                   inventoryCellSize={inventoryCellSize}
-                  onPlaced={() => handleBlockPlaced(index)}
+                  onPlaced={handleBlockPlaced}
                 />
-              </View>
+              </Animated.View>
             )}
-          </View>
+          </Animated.View>
         ))}
       </View>
     </View>
@@ -91,4 +93,3 @@ const styles = StyleSheet.create({
 });
 
 export const BlockInventory = memo(BlockInventoryComponent);
-

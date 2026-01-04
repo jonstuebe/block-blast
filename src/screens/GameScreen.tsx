@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { View, StyleSheet, SafeAreaView, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,7 +22,9 @@ export function GameScreen() {
     highScore,
     combo,
     isGameOver,
+    isClearing,
     resetGame,
+    clearComplete,
     settings,
     setSettings,
   } = useGame();
@@ -30,21 +32,33 @@ export function GameScreen() {
   const [clearingCells, setClearingCells] = useState<Position[]>([]);
   const [showSettings, setShowSettings] = useState(false);
 
-  const handleBlockPlaced = useCallback(
-    (blockIndex: number) => {
-      // Check for line clears to trigger animations
+  // Handle clearing state - animate cells then notify machine
+  useEffect(() => {
+    if (isClearing) {
+      // Get cells to clear from current grid state
       const lineClear = checkLineClears(grid);
       if (lineClear.totalLines > 0) {
         const cells = getCellsToClear(lineClear);
         setClearingCells(cells);
-        // Clear the animation state after animation completes
-        setTimeout(() => {
+
+        // After animation, notify machine that clearing is complete
+        const timer = setTimeout(() => {
           setClearingCells([]);
+          clearComplete();
         }, 350);
+
+        return () => clearTimeout(timer);
+      } else {
+        // No lines to clear, just complete
+        clearComplete();
       }
-    },
-    [grid]
-  );
+    }
+  }, [isClearing, grid, clearComplete]);
+
+  const handleBlockPlaced = useCallback(() => {
+    // Block placement is now handled by the state machine
+    // This callback is just for any additional UI feedback
+  }, []);
 
   const handleRestart = useCallback(() => {
     resetGame();

@@ -186,11 +186,11 @@ function DraggableBlockComponent({
       // Update ghost preview (on JS thread)
       runOnJS(updateGhostPreview)(absoluteX.value, absoluteY.value);
     })
-    .onEnd(() => {
+    .onEnd((event) => {
       "worklet";
       // Get current ghost preview state
       const preview = ghostPreview.value;
-
+      
       if (preview.position && preview.isValid) {
         // Valid placement - animate to grid position and fade out
         scale.value = withTiming(0.9, { duration: 100 });

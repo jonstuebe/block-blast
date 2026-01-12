@@ -199,6 +199,31 @@ export function getShapeCells(shape: BlockShape): { row: number; col: number }[]
   return cells;
 }
 
+// Get cells on the outer perimeter of a shape (interior cells are excluded)
+export function getPerimeterCells(shape: BlockShape): { row: number; col: number }[] {
+  const perimeterCells: { row: number; col: number }[] = [];
+
+  for (let row = 0; row < shape.length; row++) {
+    for (let col = 0; col < shape[row].length; col++) {
+      // Skip empty cells
+      if (!shape[row][col]) continue;
+
+      // Check if cell is on perimeter (has any empty neighbor)
+      const hasEmptyNeighbor =
+        !shape[row - 1]?.[col] ||  // Top
+        !shape[row + 1]?.[col] ||  // Bottom
+        !shape[row][col - 1] ||      // Left
+        !shape[row][col + 1];       // Right
+
+      if (hasEmptyNeighbor) {
+        perimeterCells.push({ row, col });
+      }
+    }
+  }
+
+  return perimeterCells;
+}
+
 // Generate a random block based on difficulty
 export function generateRandomBlock(score: number = 0): Block {
   let availableShapes: string[];

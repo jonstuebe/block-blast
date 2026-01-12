@@ -69,3 +69,11 @@ export interface GridLayout {
   height: number;
   cellSize: number;
 }
+
+// Inventory slot layout measurements
+export interface SlotLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}

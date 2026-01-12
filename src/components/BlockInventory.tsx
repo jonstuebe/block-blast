@@ -17,7 +17,7 @@ function BlockInventoryComponent({
 }: BlockInventoryProps) {
   const { gridLayout } = useGame();
 
-  // Use the same cell size as the grid so blocks match exactly where they'll drop
+  // Use same cell size as the grid so blocks match exactly where they'll drop
   const inventoryCellSize = gridLayout.cellSize;
 
   const handleBlockPlaced = useCallback(() => {

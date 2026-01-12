@@ -14,7 +14,7 @@ import Animated, {
 import * as Haptics from "expo-haptics";
 import { Block, Position } from "../types";
 import { BLOCK_COLORS, COLORS } from "../utils/colors";
-import { getShapeCells, getShapeDimensions } from "../utils/blocks";
+import { getShapeCells, getShapeDimensions, getPerimeterCells } from "../utils/blocks";
 import { canPlaceBlock, getBlockCellsOnGrid, GRID_SIZE } from "../utils/grid";
 import { useGame } from "../context/GameContext";
 
@@ -26,7 +26,8 @@ interface DraggableBlockProps {
 }
 
 const DRAG_SCALE = 1.0;
-const FINGER_OFFSET = 80; // Pixels above finger when dragging
+const INVENTORY_SCALE = 0.6;
+const VERTICAL_OFFSET = 60; // Pixels above finger when dragging
 
 function DraggableBlockComponent({
   block,
@@ -34,55 +35,129 @@ function DraggableBlockComponent({
   inventoryCellSize,
   onPlaced,
 }: DraggableBlockProps) {
-  const { grid, gridLayout, ghostPreview, startDrag, dropBlock, cancelDrag, settings } = useGame();
+  const {
+    grid,
+    gridLayout,
+    ghostPreview,
+    startDrag,
+    dropBlock,
+    cancelDrag,
+    settings,
+  } = useGame();
+
+  // State for ghost position (screen coordinates)
+  const [ghostX, setGhostX] = React.useState(0);
+  const [ghostY, setGhostY] = React.useState(0);
 
   // Animation shared values
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
-  const scale = useSharedValue(1);
+  const scale = useSharedValue(INVENTORY_SCALE);
   const opacity = useSharedValue(1);
 
   // Starting position for reset
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
 
-  // Current drag position (absolute on screen)
-  const absoluteX = useSharedValue(0);
-  const absoluteY = useSharedValue(0);
+  // Track where user initially touched within the block (relative to block center)
+  const touchOffsetX = useSharedValue(0);
+  const touchOffsetY = useSharedValue(0);
 
   // Block dimensions
   const { rows, cols } = getShapeDimensions(block.shape);
   const blockWidth = cols * inventoryCellSize;
   const blockHeight = rows * inventoryCellSize;
 
-  // Calculate grid position from touch coordinates
+  // Calculate overlap between a block cell and grid cell
+  const calculateOverlap = useCallback(
+    (blockCellRow: number, blockCellCol: number, gridRow: number, gridCol: number): number => {
+      if (gridLayout.cellSize === 0 || inventoryCellSize === 0) return 0;
+
+      const blockCellScreenX = ghostX + (blockCellCol * inventoryCellSize);
+      const blockCellScreenY = ghostY + (blockCellRow * inventoryCellSize);
+
+      const gridCellScreenX = gridLayout.x + (gridCol * gridLayout.cellSize);
+      const gridCellScreenY = gridLayout.y + (gridRow * gridLayout.cellSize);
+
+      const blockCellRight = blockCellScreenX + inventoryCellSize;
+      const blockCellBottom = blockCellScreenY + inventoryCellSize;
+      const gridCellRight = gridCellScreenX + gridLayout.cellSize;
+      const gridCellBottom = gridCellScreenY + gridLayout.cellSize;
+
+      const left = Math.max(blockCellScreenX, gridCellScreenX);
+      const right = Math.min(blockCellRight, gridCellRight);
+      const top = Math.max(blockCellScreenY, gridCellScreenY);
+      const bottom = Math.min(blockCellBottom, gridCellBottom);
+
+      const overlapWidth = Math.max(0, right - left);
+      const overlapHeight = Math.max(0, bottom - top);
+      const overlapArea = overlapWidth * overlapHeight;
+
+      const gridCellArea = gridLayout.cellSize * gridLayout.cellSize;
+      return (overlapArea / gridCellArea) * 100;
+    },
+    [gridLayout, inventoryCellSize, ghostX, ghostY]
+  );
+
+  // Calculate grid position using perimeter overlap detection
   const calculateGridPosition = useCallback(
-    (touchX: number, touchY: number): Position | null => {
+    (screenX: number, screenY: number): Position | null => {
       if (gridLayout.cellSize === 0) return null;
 
-      // Calculate which cell the top-left of the block would be in
-      const col = Math.round((touchX - gridLayout.x) / gridLayout.cellSize);
-      const row = Math.round((touchY - gridLayout.y) / gridLayout.cellSize);
+      const perimeterCells = getPerimeterCells(block.shape);
 
-      // Check bounds
-      if (
-        row < 0 ||
-        col < 0 ||
-        row + rows > GRID_SIZE ||
-        col + cols > GRID_SIZE
-      ) {
-        return null;
+      let bestPosition: Position | null = null;
+      let bestScore = -1;
+
+      for (let startRow = 0; startRow <= GRID_SIZE - rows; startRow++) {
+        for (let startCol = 0; startCol <= GRID_SIZE - cols; startCol++) {
+          let totalOverlap = 0;
+          let validCellCount = 0;
+          let hasCollision = false;
+
+          for (const cell of perimeterCells) {
+            const gridRow = startRow + cell.row;
+            const gridCol = startCol + cell.col;
+
+            if (grid[gridRow][gridCol]) {
+              hasCollision = true;
+              break;
+            }
+
+            const overlap = calculateOverlap(
+              cell.row,
+              cell.col,
+              gridRow,
+              gridCol
+            );
+
+            totalOverlap += overlap;
+            validCellCount++;
+          }
+
+          if (hasCollision || validCellCount === 0) continue;
+
+          const averageOverlap = totalOverlap / validCellCount;
+
+          if (averageOverlap > 50 && averageOverlap > bestScore) {
+            bestScore = averageOverlap;
+            bestPosition = { row: startRow, col: startCol };
+          }
+        }
       }
 
-      return { row, col };
+      return bestPosition;
     },
-    [gridLayout, rows, cols]
+    [grid, block, gridLayout, rows, cols, calculateOverlap]
   );
 
   // Update ghost preview
   const updateGhostPreview = useCallback(
-    (touchX: number, touchY: number) => {
-      const position = calculateGridPosition(touchX, touchY);
+    (screenX: number, screenY: number) => {
+      setGhostX(screenX);
+      setGhostY(screenY);
+
+      const position = calculateGridPosition(screenX, screenY);
 
       if (!position) {
         ghostPreview.value = { position: null, isValid: false, cells: [] };
@@ -163,34 +238,34 @@ function DraggableBlockComponent({
       startX.value = translateX.value;
       startY.value = translateY.value;
 
-      // Calculate absolute position
-      absoluteX.value = event.absoluteX - blockWidth / 2;
-      absoluteY.value = event.absoluteY - blockHeight / 2 - FINGER_OFFSET;
+      // Calculate offset from touch point to block center
+      // event.x/y are relative to gesture handler
+      touchOffsetX.value = event.x - (blockWidth / 2);
+      touchOffsetY.value = event.y - (blockHeight / 2);
 
-      // Scale up
-      scale.value = withSpring(DRAG_SCALE, { damping: 12, stiffness: 200 });
+      scale.value = DRAG_SCALE;
 
       // Notify state machine
       runOnJS(handleDragStart)();
     })
     .onUpdate((event) => {
       "worklet";
-      // Update position (relative to start)
+      // Update visual position (relative to start)
       translateX.value = startX.value + event.translationX;
-      translateY.value = startY.value + event.translationY - FINGER_OFFSET;
+      translateY.value = startY.value + event.translationY;
 
-      // Update absolute position for grid calculation
-      absoluteX.value = event.absoluteX - blockWidth / 2;
-      absoluteY.value = event.absoluteY - blockHeight / 2 - FINGER_OFFSET;
+      // Calculate ghost position: center horizontally, VERTICAL_OFFSET above finger
+      const ghostScreenX = event.absoluteX - touchOffsetX.value - (blockWidth / 2);
+      const ghostScreenY = event.absoluteY - touchOffsetY.value - VERTICAL_OFFSET - (blockHeight / 2);
 
-      // Update ghost preview (on JS thread)
-      runOnJS(updateGhostPreview)(absoluteX.value, absoluteY.value);
+      // Update ghost preview
+      runOnJS(updateGhostPreview)(ghostScreenX, ghostScreenY);
     })
     .onEnd((event) => {
       "worklet";
       // Get current ghost preview state
       const preview = ghostPreview.value;
-      
+
       if (preview.position && preview.isValid) {
         // Valid placement - animate to grid position and fade out
         scale.value = withTiming(0.9, { duration: 100 });
@@ -200,8 +275,14 @@ function DraggableBlockComponent({
         runOnJS(handlePlacement)(preview.position);
       } else {
         // Invalid placement - smooth return to origin
-        translateX.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
-        translateY.value = withTiming(0, { duration: 200, easing: Easing.out(Easing.cubic) });
+        translateX.value = withTiming(0, {
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+        });
+        translateY.value = withTiming(0, {
+          duration: 200,
+          easing: Easing.out(Easing.cubic),
+        });
 
         // Shake if was over grid
         if (preview.position) {
@@ -214,7 +295,7 @@ function DraggableBlockComponent({
       }
 
       // Reset scale
-      scale.value = withSpring(1, { damping: 12, stiffness: 200 });
+      scale.value = INVENTORY_SCALE;
 
       // Clear ghost preview
       runOnJS(clearGhostPreview)();

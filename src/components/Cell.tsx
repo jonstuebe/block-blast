@@ -64,7 +64,10 @@ function CellComponent({
       );
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.05, { duration: 400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.05, {
+            duration: 400,
+            easing: Easing.inOut(Easing.ease),
+          }),
           withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
   cell: {
     borderWidth: 1,
     borderColor: COLORS.gridLine,
-    borderRadius: 4,
+    borderRadius: 0,
   },
   filledCell: {
     borderWidth: 2,
@@ -120,8 +123,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 2,
     elevation: 3,
+    borderRadius: 6,
   },
 });
 
 export const Cell = memo(CellComponent);
-

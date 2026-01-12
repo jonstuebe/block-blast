@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   cell: {
     borderColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 4,
+    borderRadius: 6,
   },
 });
 

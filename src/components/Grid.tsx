@@ -1,6 +1,6 @@
 import React, { useCallback, memo, useEffect } from "react";
 import { View, StyleSheet, useWindowDimensions, LayoutChangeEvent } from "react-native";
-import { Grid as GridType, Position, GhostPreview } from "../types";
+import { Grid as GridType, Position, GhostPreview, BlockColor } from "../types";
 import { GRID_SIZE } from "../utils/grid";
 import { COLORS } from "../utils/colors";
 import { Cell } from "./Cell";
@@ -27,6 +27,8 @@ function GridComponent({ grid, clearingCells = [], onClearingComplete }: GridPro
     position: null,
     isValid: false,
     cells: [],
+    highlightedCells: [],
+    highlightColor: null,
   });
 
   // Sync ghost preview from shared value to React state using polling
@@ -74,13 +76,23 @@ function GridComponent({ grid, clearingCells = [], onClearingComplete }: GridPro
     onClearingComplete?.();
   }, [onClearingComplete]);
 
-  // Check if a cell has ghost preview
+  // Check if a cell has ghost preview or is highlighted for line clear
   const getGhostState = useCallback(
-    (row: number, col: number): { isGhost: boolean; isValid: boolean } => {
+    (row: number, col: number): { isGhost: boolean; isValid: boolean; highlightColor: BlockColor | null } => {
       const isGhost = ghostState.cells.some(
         (cell) => cell.row === row && cell.col === col
       );
-      return { isGhost, isValid: ghostState.isValid };
+      
+      // Check if this cell is in a row/column that would be cleared
+      const isHighlighted = ghostState.highlightedCells.some(
+        (cell) => cell.row === row && cell.col === col
+      );
+      
+      return { 
+        isGhost, 
+        isValid: ghostState.isValid,
+        highlightColor: isHighlighted ? ghostState.highlightColor : null,
+      };
     },
     [ghostState]
   );
@@ -104,6 +116,7 @@ function GridComponent({ grid, clearingCells = [], onClearingComplete }: GridPro
                 isGhost={ghost.isGhost && !cell}
                 isGhostValid={ghost.isValid}
                 isClearing={isClearing}
+                highlightColor={ghost.highlightColor}
               />
             );
           })}

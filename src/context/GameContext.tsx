@@ -73,6 +73,8 @@ export function GameProvider({ children }: GameProviderProps) {
     position: null,
     isValid: false,
     cells: [],
+    highlightedCells: [],
+    highlightColor: null,
   });
 
   // Load high score from storage on mount

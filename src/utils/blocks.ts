@@ -169,6 +169,26 @@ const COMPLEX_SHAPES = [
   "sShape2",
 ];
 
+// Shape weights (lower = rarer)
+const SHAPE_WEIGHTS: Record<string, number> = {
+  single: 0.3, // Much less common
+  square3: 0.1, // Rare
+  // All other shapes default to 1.0
+};
+
+// Weighted random selection from available shapes
+function weightedRandomShape(shapes: string[]): string {
+  const weights = shapes.map((s) => SHAPE_WEIGHTS[s] ?? 1.0);
+  const totalWeight = weights.reduce((a, b) => a + b, 0);
+  let random = Math.random() * totalWeight;
+
+  for (let i = 0; i < shapes.length; i++) {
+    random -= weights[i];
+    if (random <= 0) return shapes[i];
+  }
+  return shapes[shapes.length - 1];
+}
+
 // Generate a unique ID for a block
 let blockIdCounter = 0;
 function generateBlockId(): string {
@@ -248,8 +268,7 @@ export function generateRandomBlock(score: number = 0): Block {
     ];
   }
 
-  const shapeName =
-    availableShapes[Math.floor(Math.random() * availableShapes.length)];
+  const shapeName = weightedRandomShape(availableShapes);
   const shape = BLOCK_SHAPES[shapeName];
 
   return {

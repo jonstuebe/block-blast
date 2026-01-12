@@ -52,6 +52,8 @@ export interface GhostPreview {
   position: Position | null;
   isValid: boolean;
   cells: Position[];
+  highlightedCells: Position[];
+  highlightColor: BlockColor | null;
 }
 
 // Settings state

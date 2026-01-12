@@ -135,6 +135,28 @@ export function getCellsToClear(lineClear: LineClearResult): Position[] {
   return cells;
 }
 
+// Predict which cells would be cleared if a block is placed at a position
+// Returns cells that would be part of completed rows/columns after placement
+export function predictLineClearsAfterPlacement(
+  grid: Grid,
+  block: Block,
+  position: Position
+): Position[] {
+  // Simulate placing the block
+  const simulatedGrid = placeBlock(grid, block, position);
+  
+  // Check for completed lines on the simulated grid
+  const lineClear = checkLineClears(simulatedGrid);
+  
+  // If no lines would be cleared, return empty array
+  if (lineClear.totalLines === 0) {
+    return [];
+  }
+  
+  // Return all cells that would be cleared
+  return getCellsToClear(lineClear);
+}
+
 // Clear completed lines from the grid (returns new grid)
 export function clearLines(grid: Grid, lineClear: LineClearResult): Grid {
   const newGrid = grid.map((row) => [...row]);
